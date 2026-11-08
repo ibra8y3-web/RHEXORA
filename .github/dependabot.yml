@@ -25,6 +25,10 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "org.jetbrains.kotlinx:kotlinx-coroutines-*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # Compose BOM 2026.09.00 pulls Compose 1.12, which requires AGP 9.1 and compileSdk 37.
+      # Upgrade the Android toolchain and Compose BOM together instead of accepting this alone.
+      - dependency-name: "androidx.compose:compose-bom"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
