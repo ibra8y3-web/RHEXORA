@@ -35,9 +35,10 @@ jobs:
           exit-code: '1'
 
   scorecard:
-    if: github.event_name != 'pull_request'
+    # Optional until the repository owner enables access to the scorecard image in GCR.
+    if: github.event_name != 'pull_request' && vars.RHEXORA_SCORECARD_ENABLED == 'true'
     runs-on: ubuntu-latest
-    # Informational check: it needs to pull a Docker image from gcr.io and must not fail the whole run.
+    # Set RHEXORA_SCORECARD_ENABLED=true after GCR access is configured.
     continue-on-error: true
     permissions:
       security-events: write
