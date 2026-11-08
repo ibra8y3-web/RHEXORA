@@ -1,0 +1,5 @@
+# One integer per line; this file can be submitted to trusted workers.
+10
+20
+30
+40

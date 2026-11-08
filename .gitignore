@@ -1,0 +1,42 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+build/
+dist/
+*.egg-info/
+node-data/
+*.invite.json
+relay-credentials.json
+
+# Private node credentials and local state
+node.json
+node-key.pem
+dht-ed25519-private.pem
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+shared-media/
+processed-media/
+
+# Android / Gradle local state
+.gradle/
+**/.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+
+# Relay deployment secrets
+secrets/*.json
+
+# Local deployment settings
+.env
+.env.*
+!.env.ice.example
+
+# Coturn REST shared secret and private operator configuration
+/ops/ice/turnserver.conf
+
+# Public DHT node private keys and persistent state
+/ops/dht/data/

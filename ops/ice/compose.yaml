@@ -1,0 +1,45 @@
+services:
+  rhexora-ice-signal:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.ice
+    image: rhexora-ice:0.4.0a1
+    restart: unless-stopped
+    user: "10001:10001"
+    command: ["ice-signal-serve", "--host", "0.0.0.0", "--port", "47826"]
+    expose:
+      - "47826"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    environment:
+      RHEXORA_ICE_DOMAIN: ${RHEXORA_ICE_DOMAIN:?Set RHEXORA_ICE_DOMAIN}
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - rhexora-ice-signal
+
+  coturn:
+    image: coturn/coturn:4.6.2
+    restart: unless-stopped
+    network_mode: host
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+
+volumes:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+  - package-ecosystem: gradle
+    directory: "/android"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    # BouncyCastle jars must be upgraded together (bcprov + bcpkix + bcutil share classes).
+    groups:
+      bouncycastle:
+        patterns:
+          - "org.bouncycastle:*"
+    ignore:
+      # Android Gradle Plugin 9 needs Gradle 9; the project builds with Gradle 8.9 / AGP 8.7.
+      - dependency-name: "com.android.application"
+        update-types: ["version-update:semver-major"]
+      # Kotlin 2.2+ artifacts (coroutines 1.11, Kotlin plugin 2.4) do not compile with the
+      # project's Kotlin 2.0.21 toolchain. Upgrade the toolchain deliberately, then remove these.
+      - dependency-name: "org.jetbrains.kotlin.*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "org.jetbrains.kotlinx:kotlinx-coroutines-*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2

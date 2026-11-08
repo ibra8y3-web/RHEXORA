@@ -1,0 +1,33 @@
+services:
+  rhexora-dht-seed:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: rhexora-dht-seed:0.4.0a1
+    restart: unless-stopped
+    user: "10001:10001"
+    environment:
+      RHEXORA_DHT_BOOTSTRAP: ${RHEXORA_DHT_BOOTSTRAP:-}
+    command:
+      - dht-run
+      - --data-dir
+      - /var/lib/rhexora-dht
+      - --bind-host
+      - 0.0.0.0
+      - --advertise-host
+      - ${DHT_ADVERTISE_HOST:?Set DHT_ADVERTISE_HOST to this VPS public IP or DNS name}
+      - --port
+      - "47823"
+    ports:
+      - "47823:47823/udp"
+    volumes:
+      - ./data:/var/lib/rhexora-dht
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+

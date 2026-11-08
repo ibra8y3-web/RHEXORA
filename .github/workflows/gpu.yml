@@ -1,0 +1,36 @@
+name: Real GPU video acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+jobs:
+  gpu-acceptance:
+    # Register a self-hosted GitHub runner with this custom label on a machine with
+    # an installed FFmpeg build, GPU driver and accessible hardware encoder.
+    runs-on: [self-hosted, linux, x64, rhexora-gpu]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install RHEXORA
+        run: python -m pip install -e .
+      - name: Require a real hardware encode (no CPU fallback)
+        run: python scripts/gpu_acceptance.py
+  failure-report:
+    name: Collect complete build failure report
+    if: ${{ failure() }}
+    needs: [gpu-acceptance]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create downloadable failure bundle
+        uses: ./.github/actions/failure-bundle
+

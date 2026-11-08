@@ -1,0 +1,13 @@
+# Copy to turnserver.conf, replace all placeholders, chmod 600 and never commit it.
+fingerprint
+use-auth-secret
+static-auth-secret=REPLACE_WITH_AT_LEAST_32_RANDOM_CHARACTERS
+realm=turn.example.com
+listening-port=3478
+min-port=49160
+max-port=49200
+no-loopback-peers
+no-multicast-peers
+stale-nonce=600
+no-cli
+external-ip=203.0.113.10

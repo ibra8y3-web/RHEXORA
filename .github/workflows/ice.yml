@@ -1,0 +1,39 @@
+name: WebRTC ICE integration
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+jobs:
+  ice-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install ICE and test extras
+        run: python -m pip install -e '.[ice,test]'
+      - name: Run actual local WebRTC DataChannel + pinned TLS integration test
+        env:
+          RHEXORA_ICE_STUN: ''
+        run: python -m pytest -q
+  failure-report:
+    name: Collect complete build failure report
+    if: ${{ failure() }}
+    needs: [ice-integration]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create downloadable failure bundle
+        uses: ./.github/actions/failure-bundle
+

@@ -1,0 +1,24 @@
+# RHEXORA — roadmap and release gates
+
+| Stage | Required deliverables | Current status / acceptance gate |
+|---|---|---|
+| 0.1 — LAN compute core | Python node, TLS task transport, explicit invites, allow-listed tasks, LAN discovery and worker ledger | **Implemented and verified** by unit and live TLS integration tests. |
+| 0.2 — reliability | Bounded concurrency, idempotency ledger, task input/frame limits and retries | **Partially implemented and tested.** Durable requester queue, leases, cancellation, multi-crash recovery and end-to-end exactly-once semantics are not implemented. |
+| 0.3a — DHT discovery prototype | Signed expiring records, XOR routing, UDP RPC, bootstrap, lookup and storage | **Implemented and locally tested** across 16 independent local UDP nodes. Incoming signed records are bound to the observed source IP, per-IP UDP token buckets are enabled, and health/neighbor probes are configured. Public seed deployment is documented; a globally deployed network, Sybil/eclipse resistance, robust replication, churn and IPv6 remain unverified until operator-owned seeds are running. |
+| 0.3b — Internet and NAT | STUN/ICE, direct peer transport, TURN and Relay fallback | **Python WebRTC ICE DataChannel transport, STUN/TURN configuration, HTTPS/WSS signaling broker and ICE→Relay→direct fallback is implemented in source.** A real local ICE-to-TLS DataChannel integration test and strict public ICE/Relay/DHT-neighbor checks are configured in GitHub Actions. Signaling now enforces room capacity and per-session message bounds. The local ICE integration test is skipped in this environment because `aiortc` could not be downloaded; public cross-ISP/CGNAT validation is still pending. IPv6 task transport and network migration remain open. |
+| 0.4a — Android requester | Native Kotlin/Compose client, invite import, TLS pinning and task validation | **Source implemented.** Pure Kotlin helper checks passed locally; full Android Gradle APK build and physical-device tests remain pending. GitHub Actions is configured to build debug and unsigned release artifacts. |
+| 0.4b — Android worker | Explicitly enabled foreground service, identity, bounded task handling and Relay connector | **Source implemented for bounded prime-count tasks.** It has notification-permission handling, TLS, a SQLite request ledger and Relay support; APK build and physical-device, OEM power, thermal and network tests are pending. Media/GPU worker tasks are not implemented on Android. |
+| 0.5a — video worker task | Real FFmpeg transcode, path confinement and output validation | **Implemented and tested** on real MP4 fixtures using CPU H.264 encoding. |
+| 0.5b — distributed video | Authenticated transfer, segmentation, remote encoding, result integrity and reassembly | **Implemented and integration-tested** across two independent TLS workers using FFmpeg and FFprobe. Real hardware encoder probes for NVENC/VAAPI/QSV/AMF/VideoToolbox and a strict self-hosted GPU acceptance workflow are added; no usable GPU is available in this environment. |
+| 0.6 — sandbox and result integrity | Restricted execution, capability-scoped I/O, independent result verification and abuse controls | **Partially addressed** by allow-listed tasks, bounded requests, and path-restricted media operations. No general sandbox, proof of correct arbitrary computation, or broad abuse/rate-control system. |
+| 0.7 — developer ecosystem | Stable protocol, SDKs, conformance tests, docs and governance | **Partial.** Python package/client, Kotlin app and protocol docs exist; no long-term compatibility guarantee or broad third-party ecosystem yet. |
+| 0.8 — independent security assessment | External audit, penetration test, fuzzing, supply-chain review and retest | **Not performed.** CodeQL, Bandit, pip-audit, Gitleaks, Trivy and OpenSSF Scorecard workflows and an external audit scope are added, but they are not independent review. |
+| 1.0 — production release | Public network tests, verified Android artifacts, hardware validation, operations, governance and signed releases | **Not ready.** All acceptance gates above must be met and independently reproduced. |
+
+## Open-source commitment
+
+RHEXORA is free and open source under Apache License 2.0. The full license is included. Dependency, codec, Android component and GPU backend compatibility must be reviewed before distribution.
+
+## Completion policy
+
+A roadmap item is not complete because a placeholder, UI screen, API declaration or documentation entry exists. It is complete only after implementation, reproducible build, automated tests, relevant physical/network tests and documented limitations. A locally tested DHT is not a globally tested DHT; a Relay test on loopback is not a public Internet test; a Kotlin JVM helper compile is not a full Android APK build; a CPU encode is not GPU validation; and automated security scanning is not an independent security audit.

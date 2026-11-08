@@ -1,0 +1,3 @@
+{$RHEXORA_ICE_DOMAIN} {
+    reverse_proxy rhexora-ice-signal:47826
+}

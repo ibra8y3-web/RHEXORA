@@ -1,0 +1,17 @@
+name: RHEXORA build failure bundle
+description: Collect failed GitHub Actions logs and complete referenced source files into one ZIP artifact.
+runs:
+  using: composite
+  steps:
+    - name: Collect failure report
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: python scripts/collect_build_failure.py
+    - name: Upload failure report
+      uses: actions/upload-artifact@v4
+      with:
+        name: rhexora-build-failure-${{ github.run_id }}-${{ github.run_attempt }}
+        path: rhexora-build-failure-report.zip
+        if-no-files-found: error
+        retention-days: 14

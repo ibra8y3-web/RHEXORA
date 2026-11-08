@@ -1,0 +1,36 @@
+services:
+  rhexora-relay:
+    build: .
+    image: rhexora-relay:0.4.0a1
+    restart: unless-stopped
+    user: "10001:10001"
+    command:
+      - relay-serve
+      - --credentials
+      - /run/secrets/relay-credentials.json
+      - --host
+      - 0.0.0.0
+      - --port
+      - "47825"
+    ports:
+      - "47825:47825/tcp"
+    volumes:
+      - ./secrets/relay-credentials.json:/run/secrets/relay-credentials.json:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket; s=socket.create_connection(('127.0.0.1',47825),3); b=s.recv(128); s.close(); assert b.startswith(b'RHEXORA-RELAY/1\\n')"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rhexora"
+version = "0.4.0a1"
+description = "A permissioned peer-to-peer capability and volunteer-compute network"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "RHEXORA contributors" }]
+keywords = ["peer-to-peer", "distributed-computing", "volunteer-computing", "network"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Distributed Computing",
+]
+dependencies = ["cryptography>=41"]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "pytest-asyncio>=0.23"]
+ice = ["aiortc>=1.13", "aiohttp>=3.10"]
+all = ["aiortc>=1.13", "aiohttp>=3.10"]
+
+[project.scripts]
+rhexora = "rhexora.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-ra"
