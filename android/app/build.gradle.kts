@@ -28,6 +28,8 @@ android {
         resources {
             // BouncyCastle ships the same OSGi manifest in several jars; Android does not use it.
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            // BouncyCastle's bcprov, bcpkix, and bcutil jars share this license resource path.
+            excludes += "META-INF/LICENSE.md"
         }
     }
 }
