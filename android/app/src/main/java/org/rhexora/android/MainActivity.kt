@@ -713,7 +713,6 @@ private fun buildTaskInput(type: String, primeStart: String, primeStop: String, 
             JSONObject().put("values", values)
         }
         "text.analyze" -> {
-            require(textInput.isNotBlank()) { "أدخل نصًا لتحليله." }
             require(textInput.codePointCount(0, textInput.length) <= 100_000) { "الحد الأقصى 100,000 محرف في واجهة Android." }
             JSONObject().put("text", textInput)
         }

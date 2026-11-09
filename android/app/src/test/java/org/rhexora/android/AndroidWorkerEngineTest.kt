@@ -43,6 +43,13 @@ class AndroidWorkerEngineTest {
         assertEquals("أهلًا بالعالم\nRHEXORA\n".codePointCount(0, "أهلًا بالعالم\nRHEXORA\n".length), result.getInt("characters"))
     }
 
+    @Test fun androidTaskExecutorAcceptsEmptyText() {
+        val result = AndroidTaskExecutor.execute("text.analyze", JSONObject().put("text", ""))
+        assertEquals(0, result.getInt("characters"))
+        assertEquals(0, result.getInt("words"))
+        assertEquals(0, result.getInt("lines"))
+    }
+
     @Test fun androidTaskExecutorRejectsUnsupportedTypesAndNonIntegerValues() {
         assertThrows(IllegalArgumentException::class.java) {
             AndroidTaskExecutor.validate("media.video.transcode", JSONObject())
