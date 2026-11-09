@@ -43,10 +43,11 @@ This report deliberately distinguishes implementation in source from tests that 
 
 ### Native Android
 - Kotlin/Jetpack Compose requester and opt-in foreground Worker source under `android/`.
-- Direct TLS and opaque Relay path, TLS pinning, task/result hash validation and bounded prime-count work.
+- Direct TLS and opaque Relay path, TLS pinning, task/result hash validation and bounded `math.count_primes`, `math.sum_ints`, and `text.analyze` tasks.
+- The Android UI has Home, Tasks and Settings destinations, invite JSON file/paste import, validated task inputs, worker status, light/dark/system appearance and persisted Relay settings.
 - Android Gradle build/unit-test workflow is included.
 
-Android does not currently use the new Python WebRTC ICE transport. Physical-device validation and complete Android Gradle/APK output still need GitHub runner results and real phones. Android video/FFmpeg/GPU work is not implemented.
+Android does not currently use the new Python WebRTC ICE transport or DHT discovery. The Android worker accepts only the three built-in bounded tasks above; Android video/FFmpeg/GPU work is not implemented. Physical-device validation remains necessary for service lifecycle, UI/RTL, battery/OEM policies, direct networking and Relay operation.
 
 ### Security and supply-chain automation
 - Existing CodeQL, Bandit, pip-audit and Dependabot automation.

@@ -2,6 +2,7 @@ package org.rhexora.android
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.json.JSONObject
 import org.junit.Test
 
 class AndroidWorkerEngineTest {
@@ -26,5 +27,34 @@ class AndroidWorkerEngineTest {
         assertThrows(IllegalArgumentException::class.java) { AndroidWorkerEngine.countPrimes(10, 10) }
         assertThrows(IllegalArgumentException::class.java) { AndroidWorkerEngine.countPrimes(0, 200_001) }
         assertThrows(IllegalArgumentException::class.java) { AndroidWorkerEngine.countPrimes(0, 1_000_000_000_001L) }
+    }
+
+    @Test fun androidTaskExecutorSumsIntegersExactly() {
+        val task = JSONObject().put("values", org.json.JSONArray().put(5).put(-2).put(7))
+        val result = AndroidTaskExecutor.execute("math.sum_ints", task)
+        assertEquals("10", result.get("sum").toString())
+        assertEquals(3, result.getInt("count"))
+    }
+
+    @Test fun androidTaskExecutorAnalyzesArabicTextAndPythonLineBreaks() {
+        val result = AndroidTaskExecutor.execute("text.analyze", JSONObject().put("text", "أهلًا بالعالم\nRHEXORA\n"))
+        assertEquals(4, result.getInt("words"))
+        assertEquals(2, result.getInt("lines"))
+        assertEquals("أهلًا بالعالم\nRHEXORA\n".codePointCount(0, "أهلًا بالعالم\nRHEXORA\n".length), result.getInt("characters"))
+    }
+
+    @Test fun androidTaskExecutorRejectsUnsupportedTypesAndNonIntegerValues() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AndroidTaskExecutor.validate("media.video.transcode", JSONObject())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AndroidTaskExecutor.validate("math.sum_ints", JSONObject().put("values", org.json.JSONArray().put(1.5)))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AndroidTaskExecutor.validate(
+                "math.sum_ints",
+                JSONObject().put("values", org.json.JSONArray().put(Long.MAX_VALUE).put(1)),
+            )
+        }
     }
 }
