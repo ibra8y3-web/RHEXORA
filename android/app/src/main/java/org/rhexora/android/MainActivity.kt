@@ -322,7 +322,7 @@ private fun RhexoraScreen() {
                                     taskSucceeded = false
                                 } else {
                                     val taskType = selectedTask.type
-                                    val input = runCatching { buildTaskInput(taskType, primeStart, primeStop, sumInput, textInput) }
+                                    val input = runCatching { buildTaskInput(taskType, primeStart, primeStop, sumInput, textInput, invite.maxItems) }
                                     if (input.isFailure) {
                                         taskMessage = input.exceptionOrNull()?.message ?: "مدخلات المهمة غير صالحة."
                                         taskSucceeded = false
@@ -501,6 +501,7 @@ private fun TasksScreen(
     onCopyResult: () -> Unit,
     onExecute: () -> Unit,
 ) {
+    val taskMaxItems = parsedInvite?.maxItems ?: 100_000
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -546,15 +547,15 @@ private fun TasksScreen(
                 "math.count_primes" -> {
                     OutlinedTextField(value = primeStart, onValueChange = onPrimeStartChange, enabled = !busy, modifier = Modifier.fillMaxWidth(), label = { Text("بداية النطاق") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                     OutlinedTextField(value = primeStop, onValueChange = onPrimeStopChange, enabled = !busy, modifier = Modifier.fillMaxWidth(), label = { Text("نهاية النطاق (غير شاملة)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    Text("الحد الأقصى 200,000 عدد، والنهاية لا تتجاوز 10¹².", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("حد هذه الدعوة: ${minOf(taskMaxItems.toLong() * 2L, 200_000L)} عدد؛ النهاية لا تتجاوز 10¹².", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 "math.sum_ints" -> {
                     OutlinedTextField(value = sumInput, onValueChange = onSumInputChange, enabled = !busy, modifier = Modifier.fillMaxWidth(), minLines = 4, label = { Text("أعداد صحيحة — رقم في كل سطر أو افصل بفاصلة") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                    Text("حتى 100,000 قيمة صحيحة؛ تقبل الواجهة أعدادًا ضمن مدى Long.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("حتى $taskMaxItems قيمة حسب الدعوة؛ يجب أن تبقى القيم والمجموع ضمن مدى Long.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 else -> {
                     OutlinedTextField(value = textInput, onValueChange = onTextInputChange, enabled = !busy, modifier = Modifier.fillMaxWidth(), minLines = 5, maxLines = 10, label = { Text("النص المراد تحليله") })
-                    Text("الحساب محليًا على العامل: عدد المحارف والكلمات والأسطر. الحد الأقصى 100,000 محرف في الواجهة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("الحساب محليًا على العامل: عدد المحارف والكلمات والأسطر. الحد الأقصى ${minOf(100_000L, taskMaxItems.toLong() * 64L)} محرف وفق الدعوة.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Button(onClick = onExecute, enabled = !busy && parsedInvite != null, modifier = Modifier.fillMaxWidth()) {
@@ -685,20 +686,21 @@ private fun readBoundedDocument(context: Context, uri: android.net.Uri, maxBytes
     }
 }
 
-private fun buildTaskInput(type: String, primeStart: String, primeStop: String, sumInput: String, textInput: String): JSONObject {
+private fun buildTaskInput(type: String, primeStart: String, primeStop: String, sumInput: String, textInput: String, maxItems: Int): JSONObject {
     return when (type) {
         "math.count_primes" -> {
             val start = normalizeDigits(primeStart).toLongOrNull() ?: throw IllegalArgumentException("أدخل بداية نطاق صحيحة.")
             val stop = normalizeDigits(primeStop).toLongOrNull() ?: throw IllegalArgumentException("أدخل نهاية نطاق صحيحة.")
-            require(start >= 0 && stop > start && stop - start <= 200_000 && stop <= 1_000_000_000_000L) {
-                "النطاق يجب أن يكون موجبًا، لا يتجاوز 200,000 عدد، ونهايته لا تتجاوز 10¹²."
+            val maximumSpan = minOf(maxItems.toLong() * 2L, 200_000L)
+            require(start >= 0 && stop > start && stop - start <= maximumSpan && stop <= 1_000_000_000_000L) {
+                "النطاق يتجاوز حد العامل: $maximumSpan عدد كحد أقصى، والنهاية لا تتجاوز 10¹²."
             }
             JSONObject().put("start", start).put("stop", stop)
         }
         "math.sum_ints" -> {
             val tokens = normalizeDigits(sumInput.replace('،', ',')).split(Regex("[,\\s]+" )).filter { it.isNotBlank() }
             require(tokens.isNotEmpty()) { "أدخل عددًا صحيحًا واحدًا على الأقل." }
-            require(tokens.size <= 100_000) { "الحد الأقصى 100,000 قيمة." }
+            require(tokens.size <= maxItems) { "حد العامل لهذه الدعوة هو $maxItems قيمة." }
             val values = JSONArray()
             var total = 0L
             tokens.forEachIndexed { index, token ->
@@ -713,7 +715,8 @@ private fun buildTaskInput(type: String, primeStart: String, primeStop: String, 
             JSONObject().put("values", values)
         }
         "text.analyze" -> {
-            require(textInput.codePointCount(0, textInput.length) <= 100_000) { "الحد الأقصى 100,000 محرف في واجهة Android." }
+            val textLimit = minOf(100_000L, maxItems.toLong() * 64L)
+            require(textInput.codePointCount(0, textInput.length) <= textLimit) { "حد النص لهذه الدعوة هو $textLimit محرفًا." }
             JSONObject().put("text", textInput)
         }
         else -> throw IllegalArgumentException("نوع المهمة غير مدعوم في هذا الإصدار.")

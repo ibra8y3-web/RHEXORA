@@ -32,6 +32,7 @@ data class PeerInvite(
     val relayHost: String = "",
     val relayPort: Int = 0,
     val relayToken: String = "",
+    val maxItems: Int = 100_000,
 ) {
     companion object {
         fun parse(raw: String): PeerInvite {
@@ -48,9 +49,11 @@ data class PeerInvite(
                 relayHost = obj.optString("relay_host", ""),
                 relayPort = obj.optInt("relay_port", 0),
                 relayToken = obj.optString("relay_token", ""),
+                maxItems = obj.optInt("max_items", 100_000),
             )
             require(invite.host.isNotBlank() && invite.host.length <= 253) { "عنوان العقدة غير صالح" }
             require(invite.port in 1..65535) { "منفذ الاتصال غير صالح" }
+            require(invite.maxItems in 1..1_000_000) { "حد المهمة في ملف الدعوة غير صالح" }
             require(invite.fingerprint.matches(Regex("[0-9a-f]{64}"))) { "بصمة TLS غير صالحة" }
             require(invite.token.length >= 24) { "رمز الدعوة غير صالح" }
             require(invite.relayHost.isBlank() || invite.relayHost.length <= 253) { "عنوان Relay غير صالح" }
@@ -87,11 +90,25 @@ object RhexoraProtocol {
         require(taskType in setOf("math.count_primes", "math.sum_ints", "text.analyze")) {
             "نوع المهمة غير متاح في تطبيق Android"
         }
-        require(taskType != "math.count_primes" || run {
-            val start = input.opt("start")?.toString()?.toLongOrNull()
-            val stop = input.opt("stop")?.toString()?.toLongOrNull()
-            start != null && stop != null && start >= 0 && stop > start && stop - start <= 200_000 && stop <= 1_000_000_000_000L
-        }) { "النطاق يجب ألا يتجاوز 200000 رقم أو 10^12 كحد أعلى" }
+        AndroidTaskExecutor.validate(taskType, input)
+        when (taskType) {
+            "math.count_primes" -> {
+                val start = input.getLong("start")
+                val stop = input.getLong("stop")
+                require(stop - start <= minOf(invite.maxItems.toLong() * 2L, 200_000L)) {
+                    "نطاق المهمة يتجاوز الحد المعلن في الدعوة"
+                }
+            }
+            "math.sum_ints" -> require(input.getJSONArray("values").length() <= invite.maxItems) {
+                "عدد القيم يتجاوز الحد المعلن في الدعوة"
+            }
+            "text.analyze" -> {
+                val text = input.opt("text") as? String ?: throw IllegalArgumentException("مهمة تحليل النص تحتاج قيمة نصية")
+                require(text.codePointCount(0, text.length) <= invite.maxItems.toLong() * 64L) {
+                    "طول النص يتجاوز الحد المعلن في الدعوة"
+                }
+            }
+        }
         val task = JSONObject().put("type", taskType).put("input", input)
         val requestId = UUID.randomUUID().toString()
         val request = JSONObject()

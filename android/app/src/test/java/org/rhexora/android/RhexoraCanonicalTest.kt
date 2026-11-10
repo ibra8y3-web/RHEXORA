@@ -54,4 +54,18 @@ class RhexoraCanonicalTest {
         assertEquals(47825, parsed.relayPort)
         assertEquals("r".repeat(32), parsed.relayToken)
     }
+
+    @Test fun inviteCarriesBoundedWorkerItemLimit() {
+        val base = JSONObject()
+            .put("invite_version", 1)
+            .put("name", "worker")
+            .put("host", "worker.example.com")
+            .put("port", 47821)
+            .put("tls_fingerprint", "a".repeat(64))
+            .put("token", "x".repeat(32))
+        assertEquals(500, PeerInvite.parse(JSONObject(base.toString()).put("max_items", 500).toString()).maxItems)
+        assertThrows(IllegalArgumentException::class.java) {
+            PeerInvite.parse(JSONObject(base.toString()).put("max_items", 0).toString())
+        }
+    }
 }

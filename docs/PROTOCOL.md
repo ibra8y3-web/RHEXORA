@@ -40,6 +40,7 @@ The Python worker supports `math.sum_ints`, `math.count_primes`, and `text.analy
 - `text.analyze`: returns Unicode code-point count, Python-compatible Unicode `\\w+` word count, and `str.splitlines()`-compatible line count. The Android requester UI caps its own input at 100,000 code points; the Android worker applies a larger bounded protocol limit subject to the 8 MiB frame cap.
 
 Task support is selected by the worker's local allow-list, not by the client. An unsupported task returns `ok: false` and must not be retried as an untrusted code path.
+The invite's `max_items` field is a workload limit advertised by the worker; clients should use it to avoid sending oversized work, but the worker must independently validate every request against its current local limits.
 
 ## Authenticated media upload
 

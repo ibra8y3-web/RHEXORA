@@ -14,6 +14,7 @@ Requester and worker support the same three built-in tasks. Unsupported task typ
 
 - Paste invitation JSON, choose a JSON/text file, or paste from the clipboard.
 - Validate invite version, host/port, bearer token, TLS certificate fingerprint and optional Relay fields before enabling task execution.
+- Read the invite's `max_items` hint and bound the submitted item count, prime span and text length before connecting; the worker validates its own limits again.
 - Connect directly or through the invitation's self-hosted opaque TCP Relay. The requester pins the worker's leaf-certificate SHA-256 fingerprint on both paths.
 - Check protocol version, request ID, invited node ID, task hash and result hash before showing a result.
 - Copy a task summary without copying invitation secrets.
