@@ -13,7 +13,7 @@ Each compute node has a TLS server identity and a separate application bearer to
 
 ## Compute plane
 
-The Python server accepts only built-in allow-listed task types, applies input/frame/concurrency limits, hashes canonical task and result JSON, and records completed requests in SQLite. The current task set is integer aggregation, prime counting and text statistics. Android worker source currently implements only bounded prime counting.
+The Python server accepts only built-in allow-listed task types, applies input/frame/concurrency limits, hashes canonical task and result JSON, and records completed requests in SQLite. The current task set is integer aggregation, prime counting and text statistics; optional video processing is a separate Python-only media plane. The Android requester and worker support those three compute tasks with Android-specific signed-64-bit sum limits and bounded input sizes.
 
 A SHA-256 result digest verifies response-byte integrity but does not prove that the worker calculated the answer honestly. There is no general proof-of-computation or quorum verification protocol yet.
 

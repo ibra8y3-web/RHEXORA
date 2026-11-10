@@ -31,6 +31,17 @@ A successful response has `kind: result`, `ok: true`, `node_id`, the canonical t
 
 The task hash binds the task body to the response. The result hash binds the returned result bytes. Neither proves honest or mathematically correct execution by a worker.
 
+## Built-in task compatibility
+
+The Python worker supports `math.sum_ints`, `math.count_primes`, and `text.analyze`; optional `media.video.transcode` is available only when the Python operator enables video. The Android requester and worker support the first three tasks only. They do not accept video, GPU, ICE, or arbitrary-code tasks.
+
+- `math.sum_ints`: Python accepts bounded integers up to 4096 bits per value and configured `max_items`. Android accepts up to 100,000 signed 64-bit values and rejects a sum that overflows signed 64-bit. This is an Android subset of the Python input range.
+- `math.count_primes`: Android accepts `0 <= start < stop`, a span of at most 200,000, and `stop <= 10^12`.
+- `text.analyze`: returns Unicode code-point count, Python-compatible Unicode `\\w+` word count, and `str.splitlines()`-compatible line count. The Android requester UI caps its own input at 100,000 code points; the Android worker applies a larger bounded protocol limit subject to the 8 MiB frame cap.
+
+Task support is selected by the worker's local allow-list, not by the client. An unsupported task returns `ok: false` and must not be retried as an untrusted code path.
+The invite's `max_items` field is a workload limit advertised by the worker; clients should use it to avoid sending oversized work, but the worker must independently validate every request against its current local limits.
+
 ## Authenticated media upload
 
 Media is disabled unless the worker operator explicitly enables it. Each operation is its own authenticated TLS request/response exchange. The client uses the same worker token and pinned certificate as task execution.

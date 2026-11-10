@@ -295,9 +295,11 @@ class RhexoraWorkerService : Service() {
                 startRelayConnector(relayHost, relayPort)
             }
             val invite = identity.invite(host, server.localPort, relayHost, relayPort)
+            activeInProcess = true
             prefs.edit()
                 .putString("worker_invite", invite)
                 .putBoolean("worker_running", true)
+                .putString("worker_message", "العامل نشط على $host:${server.localPort}")
                 .commit()
             sendBroadcast(Intent(ACTION_WORKER_READY).setPackage(packageName))
             updateNotification("عامل RHEXORA نشط على $host:${server.localPort}")
@@ -322,10 +324,14 @@ class RhexoraWorkerService : Service() {
             Log.e("RHEXORA", "Android worker stopped: ${error.message}")
             getSharedPreferences("rhexora_worker", MODE_PRIVATE).edit()
                 .putBoolean("worker_running", false).commit()
-            updateNotification("تعذر تشغيل العامل: ${error.message ?: "خطأ اتصال"}")
+            val failureMessage = "تعذر تشغيل العامل: ${error.message ?: "خطأ اتصال"}"
+            getSharedPreferences("rhexora_worker", MODE_PRIVATE).edit()
+                .putString("worker_message", failureMessage).commit()
+            updateNotification(failureMessage)
             stopSelf()
         } finally {
             running = false
+            activeInProcess = false
             runCatching { listener?.close() }
             listener = null
         }
@@ -506,20 +512,13 @@ class RhexoraWorkerService : Service() {
         }
         val task = request.optJSONObject("task")
             ?: return base.put("ok", false).put("error", "بيانات المهمة غير صالحة")
-        if (task.optString("type") != "math.count_primes") {
-            return base.put("ok", false).put("error", "هذه المهمة غير مدعومة على عامل Android")
-        }
+        val taskType = task.optString("type")
         val input = task.optJSONObject("input")
             ?: return base.put("ok", false).put("error", "مدخلات المهمة غير صالحة")
-        // Parse textual integer representations only: accepting Double.toLong() would
-        // silently truncate fractional values and can lose precision for large integers.
-        val startLong = input.opt("start")?.toString()?.toLongOrNull()
-        val stopLong = input.opt("stop")?.toString()?.toLongOrNull()
-        if (startLong == null || stopLong == null) {
-            return base.put("ok", false).put("error", "حدود المهمة يجب أن تكون أعدادًا صحيحة")
-        }
-        if (startLong < 0 || stopLong <= startLong || stopLong - startLong > 200_000 || stopLong > 1_000_000_000_000L) {
-            return base.put("ok", false).put("error", "نطاق الحساب خارج الحدود المسموحة")
+        try {
+            AndroidTaskExecutor.validate(taskType, input)
+        } catch (error: IllegalArgumentException) {
+            return base.put("ok", false).put("error", error.message ?: "مدخلات المهمة غير صالحة")
         }
         val taskHash = RhexoraProtocol.sha256(RhexoraProtocol.canonical(task).toByteArray(Charsets.UTF_8))
         val claim = ledger.claim(requestId, taskHash)
@@ -530,10 +529,7 @@ class RhexoraWorkerService : Service() {
             "claimed" -> Unit
             else -> return base.put("ok", false).put("error", "تعذر حجز المهمة")
         }
-        val result = JSONObject()
-            .put("count", AndroidWorkerEngine.countPrimes(startLong, stopLong))
-            .put("start", startLong)
-            .put("stop", stopLong)
+        val result = AndroidTaskExecutor.execute(taskType, input)
         val response = base
             .put("ok", true)
             .put("task_hash", taskHash)
@@ -593,13 +589,17 @@ class RhexoraWorkerService : Service() {
 
     override fun onDestroy() {
         running = false
+        activeInProcess = false
         runCatching { listener?.close() }
         runCatching { relayBridge?.close() }
         runCatching { relayConnection?.close() }
         activeSockets.toList().forEach { socket -> runCatching { socket.close() } }
         activeSockets.clear()
-        getSharedPreferences("rhexora_worker", MODE_PRIVATE).edit()
-            .putBoolean("worker_running", false).commit()
+        val preferences = getSharedPreferences("rhexora_worker", MODE_PRIVATE)
+        val previousMessage = preferences.getString("worker_message", "").orEmpty()
+        val editor = preferences.edit().putBoolean("worker_running", false)
+        if (!previousMessage.startsWith("تعذر تشغيل العامل:")) editor.putString("worker_message", "العامل متوقف")
+        editor.commit()
         pool.shutdownNow()
         runCatching { pool.awaitTermination(2, TimeUnit.SECONDS) }
         runCatching { ledger.close() }
@@ -610,6 +610,10 @@ class RhexoraWorkerService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        @Volatile
+        var activeInProcess: Boolean = false
+            private set
+
         const val ACTION_READY = "org.rhexora.android.worker.READY"
         private const val ACTION_WORKER_READY = ACTION_READY
 

@@ -32,6 +32,7 @@ data class PeerInvite(
     val relayHost: String = "",
     val relayPort: Int = 0,
     val relayToken: String = "",
+    val maxItems: Int = 100_000,
 ) {
     companion object {
         fun parse(raw: String): PeerInvite {
@@ -48,9 +49,11 @@ data class PeerInvite(
                 relayHost = obj.optString("relay_host", ""),
                 relayPort = obj.optInt("relay_port", 0),
                 relayToken = obj.optString("relay_token", ""),
+                maxItems = obj.optInt("max_items", 100_000),
             )
             require(invite.host.isNotBlank() && invite.host.length <= 253) { "عنوان العقدة غير صالح" }
             require(invite.port in 1..65535) { "منفذ الاتصال غير صالح" }
+            require(invite.maxItems in 1..1_000_000) { "حد المهمة في ملف الدعوة غير صالح" }
             require(invite.fingerprint.matches(Regex("[0-9a-f]{64}"))) { "بصمة TLS غير صالحة" }
             require(invite.token.length >= 24) { "رمز الدعوة غير صالح" }
             require(invite.relayHost.isBlank() || invite.relayHost.length <= 253) { "عنوان Relay غير صالح" }
@@ -68,10 +71,46 @@ object RhexoraProtocol {
         require(start >= 0 && stop > start && stop - start <= 200_000 && stop <= 1_000_000_000_000L) {
             "النطاق يجب ألا يتجاوز 200000 رقم أو 10^12 كحد أعلى"
         }
-        val requestId = UUID.randomUUID().toString()
         val task = JSONObject()
             .put("type", "math.count_primes")
             .put("input", JSONObject().put("start", start).put("stop", stop))
+        val response = executeTask(invite, "math.count_primes", task.getJSONObject("input"))
+        val result = response.getJSONObject("result")
+        return JSONObject()
+            .put("worker", invite.name)
+            .put("node_id", response.optString("node_id"))
+            .put("request_id", response.optString("request_id"))
+            .put("prime_count", result.getLong("count"))
+            .put("start", result.getLong("start"))
+            .put("stop_exclusive", result.getLong("stop"))
+            .put("task_hash", response.optString("task_hash"))
+    }
+
+    fun executeTask(invite: PeerInvite, taskType: String, input: JSONObject): JSONObject {
+        require(taskType in setOf("math.count_primes", "math.sum_ints", "text.analyze")) {
+            "نوع المهمة غير متاح في تطبيق Android"
+        }
+        AndroidTaskExecutor.validate(taskType, input)
+        when (taskType) {
+            "math.count_primes" -> {
+                val start = input.getLong("start")
+                val stop = input.getLong("stop")
+                require(stop - start <= minOf(invite.maxItems.toLong() * 2L, 200_000L)) {
+                    "نطاق المهمة يتجاوز الحد المعلن في الدعوة"
+                }
+            }
+            "math.sum_ints" -> require(input.getJSONArray("values").length() <= invite.maxItems) {
+                "عدد القيم يتجاوز الحد المعلن في الدعوة"
+            }
+            "text.analyze" -> {
+                val text = input.opt("text") as? String ?: throw IllegalArgumentException("مهمة تحليل النص تحتاج قيمة نصية")
+                require(text.codePointCount(0, text.length) <= invite.maxItems.toLong() * 64L) {
+                    "طول النص يتجاوز الحد المعلن في الدعوة"
+                }
+            }
+        }
+        val task = JSONObject().put("type", taskType).put("input", input)
+        val requestId = UUID.randomUUID().toString()
         val request = JSONObject()
             .put("kind", "execute")
             .put("protocol_version", PROTOCOL_VERSION)
@@ -106,15 +145,17 @@ object RhexoraProtocol {
             val expectedTaskHash = sha256(canonical(task).toByteArray(Charsets.UTF_8))
             require(response.optString("task_hash") == expectedTaskHash) { "بصمة المهمة غير مطابقة" }
             val result = response.getJSONObject("result")
-            require(response.optString("result_hash") == sha256(canonical(result).toByteArray(Charsets.UTF_8))) { "بصمة النتيجة غير مطابقة" }
+            val resultHash = sha256(canonical(result).toByteArray(Charsets.UTF_8))
+            require(response.optString("result_hash") == resultHash) { "بصمة النتيجة غير مطابقة" }
             return JSONObject()
                 .put("worker", invite.name)
                 .put("node_id", response.optString("node_id"))
                 .put("request_id", requestId)
-                .put("prime_count", result.getLong("count"))
-                .put("start", result.getLong("start"))
-                .put("stop_exclusive", result.getLong("stop"))
+                .put("task_type", taskType)
+                .put("transport", if (invite.relayHost.isBlank()) "direct" else "relay")
                 .put("task_hash", expectedTaskHash)
+                .put("result_hash", resultHash)
+                .put("result", result)
         } finally {
             runCatching { socket.close() }
         }

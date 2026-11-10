@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Reorganized the Arabic Android app into Home, Tasks and Settings destinations with RTL-aware Material 3 light/dark/system appearance.
+- Added invite JSON file selection and clipboard paste, validation feedback, masked invite secrets, persisted Relay settings with restart guidance, and live worker-state refresh.
+- Added Android requester and worker support for bounded integer-sum and Unicode text-analysis tasks alongside prime counting; Android video, GPU, ICE and DHT remain unsupported.
+- Refreshed English and Arabic READMEs with an accurate network architecture diagram and a Python-versus-Android capability matrix.
+
 ## 0.4.0a1 — 2026-11-08
 
 - Added optional WebRTC ICE signaling and DataChannel transport for Python peers. The existing worker TLS stream is tunnelled inside the DataChannel; certificate pinning remains active.

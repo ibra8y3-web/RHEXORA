@@ -1,0 +1,34 @@
+flowchart LR
+  subgraph Clients["العملاء"]
+    PYREQ["عميل Python<br/>جمع · أوليات · نص · فيديو"]
+    ANDREQ["تطبيق Android<br/>جمع · أوليات · نص"]
+  end
+
+  subgraph Workers["العُمال الموثوقون"]
+    PYWORK["عامل Python<br/>مهام مسموح بها<br/>فيديو / GPU اختياري"]
+    ANDWORK["عامل Android<br/>جمع · أوليات · نص فقط"]
+  end
+
+  subgraph Paths["مسارات اختيارية يديرها المشغّل"]
+    RELAY["TCP Relay مبهم<br/>يمرر TLS ولا يفك تشفيره"]
+    ICE["WebRTC ICE / TURN<br/>Python فقط"]
+  end
+
+  DHT["DHT موقّعة<br/>اكتشاف بيانات العقد فقط<br/>ليست إثبات ثقة أو اتصال"]
+
+  PYREQ -->|"TLS مباشر مع تثبيت الشهادة"| PYWORK
+  ANDREQ -->|"TLS مباشر مع تثبيت الشهادة"| ANDWORK
+  PYREQ -.->|"Relay اختياري"| RELAY
+  ANDREQ -.->|"Relay اختياري"| RELAY
+  RELAY -.->|"نفق TLS مشفّر"| PYWORK
+  RELAY -.->|"نفق TLS مشفّر"| ANDWORK
+  PYREQ -.->|"ICE اختياري"| ICE
+  ICE -.->|"DataChannel يحمل TLS"| PYWORK
+  PYREQ -.->|"اكتشاف فقط"| DHT
+
+  classDef client fill:#e9ddff,stroke:#5a43b5,color:#21105e,stroke-width:2px
+  classDef worker fill:#d8f2ee,stroke:#286a64,color:#00201d,stroke-width:2px
+  classDef infra fill:#fff0d6,stroke:#9a5b00,color:#402900,stroke-width:1.5px
+  class PYREQ,ANDREQ client
+  class PYWORK,ANDWORK worker
+  class RELAY,ICE,DHT infra

@@ -1,82 +1,88 @@
-# RHEXORA — Permissioned Peer-to-Peer Capability Network
+# RHEXORA
 
-> **Version 0.4.0a1 (alpha).** RHEXORA is an open-source peer-compute implementation with authenticated TLS workers, a signed UDP DHT prototype, WebRTC ICE DataChannel transport, an opaque self-hosted Relay fallback, distributed FFmpeg video processing and native Android requester/worker source. It is not a production 1.0 release.
+**Private, bounded computing across devices you trust.** RHEXORA is an open-source peer-compute prototype: Python and Android peers exchange allow-listed tasks over authenticated, certificate-pinned TLS.
 
-## What is implemented
+[العربية](README_AR.md) · **Version 0.4.0a1 — Alpha** · Apache-2.0
 
-- Trusted peer invitations, TLS certificate pinning, per-node task tokens and an allow-listed task protocol.
-- Python workers for integer sums, segmented prime counting, text statistics and FFmpeg video transcoding.
-- Distributed video processing: split locally, authenticated chunk upload to multiple workers, remote H.264 encode, SHA-256 verified downloads and final assembly.
-- Signed Ed25519 DHT node records, Kademlia-style XOR routing, bootstrap, lookup, record expiry and SQLite storage.
-- WebRTC ICE DataChannel tunnel for Python peers. The existing worker TLS byte stream is preserved inside the DataChannel, including certificate pinning. STUN/TURN values are configurable through environment variables.
-- Self-hosted opaque TCP Relay fallback with independent HMAC challenge authentication and end-to-end TLS.
-- FFmpeg hardware encoder discovery for NVENC, VAAPI, QSV, AMF and VideoToolbox. A hardware encoder is advertised only after a real one-frame encode succeeds.
-- Native Android source under `android/`, including requester and opt-in foreground Worker source.
-- GitHub Actions for multi-platform Python tests, Android Gradle build, ICE integration, public network checks, GPU acceptance on a self-hosted GPU runner, CodeQL, Bandit, pip-audit, Gitleaks, Trivy and OpenSSF Scorecard.
+[![Android build](https://github.com/ibra8y3-web/RHEXORA/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/ibra8y3-web/RHEXORA/actions/workflows/android.yml)
+[![Python tests](https://github.com/ibra8y3-web/RHEXORA/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/ibra8y3-web/RHEXORA/actions/workflows/tests.yml)
+[![Security analysis](https://github.com/ibra8y3-web/RHEXORA/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/ibra8y3-web/RHEXORA/actions/workflows/security.yml)
 
-## GitHub CI and external acceptance
+> **Alpha notice:** This is not a production-ready 1.0 release. Do not use it for sensitive workloads or connect workers to strangers. Public-network, real-GPU, physical-Android-device and independent security-audit acceptance remain separate requirements.
 
-See `GITHUB_CI_GUIDE_AR.md` for the complete upload/run guide, automatic workflows, operator-owned public-network prerequisites, GPU runner setup and independent audit requirements.
+## How it fits together
 
-## Install and test
+![RHEXORA network architecture: clients, trusted workers, direct TLS and optional operator-run transports](docs/assets/rhexora-architecture.png)
+
+The diagram describes implemented paths, not hosted services: operators provide their own DHT seeds, signaling, TURN and Relay infrastructure. Discovery metadata is not task authorization; invites and pinned TLS identities establish trust.
+
+## What works today
+
+| Capability | Python peers | Android app / worker |
+|---|---:|---:|
+| Integer sum (`math.sum_ints`) | Yes | Yes |
+| Prime counting (`math.count_primes`) | Yes | Yes, bounded range |
+| Text statistics (`text.analyze`) | Yes | Yes |
+| Distributed FFmpeg video transcoding | Yes | Not implemented |
+| Direct TLS with certificate pinning | Yes | Yes |
+| Opaque TCP Relay fallback | Yes, self-hosted | Yes, self-hosted |
+| WebRTC ICE / TURN transport | Yes, optional | Not implemented |
+| Signed UDP DHT discovery | Yes | Not implemented |
+| Hardware video encoding | Python/FFmpeg only; requires a successful device encode probe | Not implemented |
+
+Android runs as both a requester and an **opt-in foreground worker**. The worker only accepts the three bounded tasks listed above; it does not run arbitrary code, video jobs or GPU work. Its service is started and stopped by the device owner.
+
+### Python video pipeline
+
+Python workers can receive authorized video jobs, transcode separate segments through FFmpeg, return hash-verified files and assemble the result. This distributed pipeline may differ from a single-pass encode in timing, quality, metadata and compatibility. GPU use is reported only after a real hardware encode probe; a listed encoder alone does not prove a working GPU.
+
+## Quick start
 
 ```bash
 python -m pip install -e '.[test]'
 python -m pytest -q
+rhexora --help
 ```
 
-Install the optional ICE dependencies:
-
-```bash
-python -m pip install -e '.[ice,test]'
-python -m pytest -q
-```
-
-## Start a worker
+Start a local worker:
 
 ```bash
 rhexora init --data-dir ./worker --port 47821
 rhexora run --data-dir ./worker
 ```
 
-Create a private invite, add it on the requester, then submit a computation. See `README_AR.md` for the full Arabic workflow.
-
-## Public network deployment
-
-- Global DHT bootstrap deployment: `docs/GLOBAL_DHT.md` and `ops/dht/compose.yaml`.
-- WebRTC ICE, signaling and TURN deployment: `docs/ICE.md`, `ops/ice/compose.yaml`, and `Dockerfile.ice`.
-- Relay deployment: `docs/NAT.md` and `ops_README_RELAY.md`.
-- External GitHub smoke test configuration: `docs/PUBLIC_NETWORK_ACCEPTANCE.md`.
-
-This repository does not publish invented DHT seed addresses or operate public infrastructure on behalf of users. Operators must deploy and configure their own public nodes, signaling service, TURN and Relay endpoints.
-
-## GPU validation
+In another terminal, create an invite for an address reachable by the requester:
 
 ```bash
-rhexora media-capabilities
-python scripts/gpu_acceptance.py
+rhexora invite --data-dir ./worker --host <reachable-host> --output ./worker.invite.json
 ```
 
-The acceptance script fails when no hardware encoder completes an actual encode with CPU fallback disabled. The GitHub GPU workflow requires a self-hosted runner labeled `rhexora-gpu` with a correctly installed GPU driver and FFmpeg build.
+Transfer that file only to the intended trusted requester. Invites are bearer credentials—never commit or post them.
 
-## Security status
+## Android app
 
-The project includes automated security and supply-chain scans, but **has not received an independent security audit**. Use `SECURITY_AUDIT_REQUEST.md` as the scope for an external assessor. Do not expose workers to unknown peers or use the early alpha for sensitive workloads.
+The native Kotlin/Jetpack Compose app lives in [`android/`](android/). It supports importing a JSON invite, running the three Android-supported tasks, and explicitly starting a foreground worker. Build requirements and details are in [`android/README.md`](android/README.md). Android ICE, video/FFmpeg and GPU processing are not implemented. The release APK is unsigned; real-device, battery-policy and OEM validation are still required.
 
-## Known external validation requirements
+## Network deployment and verification
 
-- ICE end-to-end integration tests are configured in GitHub Actions; the optional `aiortc` dependency could not be downloaded in the current offline build environment, so that integration test was skipped locally.
-- Internet-wide DHT, public Relay and ICE tests require public nodes and secrets configured by the repository owner; the repository contains workflows and smoke scripts but does not claim these remote checks already passed.
-- GPU support is implemented with real encoder probes, but this environment has no usable GPU device/driver; CPU encoding is the only path verified here.
-- Android source is included and a GitHub build workflow is present. Physical-device validation remains a separate requirement.
-- Independent security assessment must be performed by a third party.
+- [Architecture and protocol](docs/ARCHITECTURE.md) · [protocol details](docs/PROTOCOL.md)
+- [NAT, ICE and Relay](docs/NAT.md) · [ICE setup](docs/ICE.md) · [Relay operations](ops_README_RELAY.md)
+- [DHT deployment](docs/GLOBAL_DHT.md) · [public network acceptance prerequisites](docs/PUBLIC_NETWORK_ACCEPTANCE.md)
+- [GPU acceptance](docs/GPU.md) · [video processing](docs/VIDEO.md)
+- [GitHub Actions guide (Arabic)](GITHUB_CI_GUIDE_AR.md)
 
-## License
+The **Public network smoke tests** workflow needs operator-owned endpoints, credentials and a live worker. The **Real GPU video acceptance** workflow is manual and needs a registered self-hosted Linux runner labelled `rhexora-gpu` with a supported GPU, driver and FFmpeg build. A green workflow is evidence only for the infrastructure and hardware that actually ran it.
 
-Apache License 2.0. See `LICENSE`.
+## Security and limitations
 
-## GitHub Actions failure bundles
+- TLS certificate pinning, per-node invite tokens, bounded allow-listed handlers, request/result hashes and basic resource limits are implemented.
+- Hashes provide byte integrity, not proof that a worker computed an answer honestly. There is no general consensus or verifiable-computation layer.
+- DHT records are signed discovery hints, not proof of reachability or trust. Relay, signaling, DHT and TURN operators can observe metadata and deny service.
+- **No independent security audit, public-network certification or production-scale load test has been completed.** See [`SECURITY_AUDIT_REQUEST.md`](SECURITY_AUDIT_REQUEST.md).
+- Hardware and physical-device claims require acceptance on the actual target machine. Current project status and remaining checks: [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md).
 
-If any workflow job fails, a dependent `failure-report` job automatically downloads the failed job logs and creates a ZIP artifact named `rhexora-build-failure-<run-id>-<attempt>`. Download it from the failed workflow run's **Artifacts** section. The bundle includes run/job metadata, downloadable logs, and complete copies of repository files whose paths appear in those logs or changed in the triggering commit.
+## Contributing and license
 
-A path mentioned in a log is evidence that the file appeared in the diagnostic output, not proof that it caused the failure. Common secret files/directories are excluded, but inspect the ZIP before sharing it; no filename-based filter can guarantee that arbitrary source files contain no secrets. The reporting job requires the GitHub Actions `actions: read` permission.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for contribution guidance. Licensed under [Apache-2.0](LICENSE).
+
+For CI diagnostics, see [GitHub Actions failure bundles](GITHUB_CI_GUIDE_AR.md#تقارير-الفشل-الكاملة).
